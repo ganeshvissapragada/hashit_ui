@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, FolderOpen, Lock, HardDrive, Shield, Infinity, Eye, EyeOff, Key, AlertCircle, CheckCircle } from "lucide-react";
+import { CloudUpload, FolderOpen, Lock, HardDrive, Shield, Infinity, Eye, EyeOff, Key, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { generateSHA256, encryptFile } from "@/lib/crypto";
 import { addRecentUpload, updateStorageUsed } from "@/lib/storage";
 import { apiRequest } from "@/lib/queryClient";
 import Upload3DAnimation from "./upload-3d-animation";
+import BlockchainUploadModal from "./blockchain-upload-modal";
 
 export default function FileUpload() {
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -25,6 +26,7 @@ export default function FileUpload() {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepProgress, setStepProgress] = useState(0);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [showBlockchainModal, setShowBlockchainModal] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -293,7 +295,7 @@ export default function FileUpload() {
                         />
                         <label htmlFor="encrypt-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
                           <Lock className="text-purple-400" size={16} />
-                          <span>Encrypt file with custom password</span>
+                          <span>Encrypt file with Secret Key</span>
                         </label>
                       </div>
                       
@@ -313,7 +315,7 @@ export default function FileUpload() {
                         />
                         <label htmlFor="zero-knowledge-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
                           <Key className="text-blue-400" size={16} />
-                          <span>Zero-knowledge encryption with custom password</span>
+                          <span>Zero-knowledge encryption with Secret Key</span>
                         </label>
                       </div>
                     </div>
@@ -325,12 +327,12 @@ export default function FileUpload() {
                       <div className="space-y-4">
                         <div className="flex items-center space-x-2 mb-4">
                           <Key className="text-blue-400" size={18} />
-                          <h4 className="text-sm font-medium text-white">Encryption Password</h4>
+                          <h4 className="text-sm font-medium text-white">Secret Key</h4>
                         </div>
                         
                         <div className="space-y-3">
                           <Label htmlFor="password" className="text-sm text-slate-300">
-                            Enter a strong password for file encryption
+                            Enter a strong Secret Key for file encryption
                           </Label>
                           <div className="relative">
                             <Input
@@ -338,7 +340,7 @@ export default function FileUpload() {
                               type={showPassword ? "text" : "password"}
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              placeholder="Enter your password"
+                              placeholder="Enter your Secret Key"
                               className="bg-gray-800 border-gray-600 text-white pr-10"
                             />
                             <button
@@ -403,7 +405,11 @@ export default function FileUpload() {
                   
                   {/* Submit button */}
                   <Button
-                    onClick={() => selectedFiles[0] && handleFileUpload(selectedFiles[0])}
+                    onClick={() => {
+                      if (selectedFiles.length > 0) {
+                        setShowBlockchainModal(true);
+                      }
+                    }}
                     disabled={!canUpload || isUploading}
                     className="w-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-3 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -485,5 +491,20 @@ export default function FileUpload() {
         </div>
       </CardContent>
     </Card>
+
+    {/* Blockchain Upload Modal */}
+    <BlockchainUploadModal
+      isOpen={showBlockchainModal}
+      onClose={() => setShowBlockchainModal(false)}
+      fileName={selectedFiles[0]?.name || ""}
+      encrypt={encrypt || zeroKnowledge}
+      onUploadComplete={(transactionId) => {
+        // Handle successful upload
+        if (selectedFiles[0]) {
+          handleFileUpload(selectedFiles[0]);
+        }
+        setShowBlockchainModal(false);
+      }}
+    />
   );
 }
