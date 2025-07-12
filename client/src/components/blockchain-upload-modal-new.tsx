@@ -181,8 +181,8 @@ export default function BlockchainUploadModalNew({
       const animationId = requestAnimationFrame(animate);
       const time = Date.now() * 0.001;
       
-      // Rotate Earth clockwise around horizontal axis (like globe on a stand)
-      earth.rotation.y += 0.005;
+      // Rotate Earth very slowly in opposite direction
+      earth.rotation.y -= 0.001;
       
       // Move satellites
       satellites.forEach(satellite => {
