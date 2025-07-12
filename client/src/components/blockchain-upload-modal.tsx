@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Loader2, Globe, Lock, Key, Upload, Copy, X } from "lucide-react";
@@ -339,6 +339,9 @@ export default function BlockchainUploadModal({
               <span>Global Blockchain Transfer</span>
             </div>
           </DialogTitle>
+          <DialogDescription className="text-center text-gray-400">
+            Secure, decentralized file storage across the globe
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

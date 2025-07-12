@@ -286,9 +286,7 @@ export default function FileUpload() {
                           checked={encrypt}
                           onCheckedChange={(checked) => {
                             setEncrypt(checked as boolean);
-                            if (checked) {
-                              setZeroKnowledge(false);
-                            } else {
+                            if (!checked && !zeroKnowledge) {
                               setPassword("");
                             }
                           }}
@@ -306,9 +304,7 @@ export default function FileUpload() {
                           checked={zeroKnowledge}
                           onCheckedChange={(checked) => {
                             setZeroKnowledge(checked as boolean);
-                            if (checked) {
-                              setEncrypt(false);
-                            } else {
+                            if (!checked && !encrypt) {
                               setPassword("");
                             }
                           }}
@@ -438,43 +434,7 @@ export default function FileUpload() {
           </div>
         )}
 
-        {isUploading && (
-          <div className="mt-6">
-            <Card className="bg-gray-900/50 border-indigo-700/50">
-              <CardContent className="p-6">
-                {/* 3D Animation */}
-                <Upload3DAnimation 
-                  isUploading={isUploading}
-                  currentStep={currentStep}
-                  stepProgress={stepProgress}
-                  encrypt={encrypt || zeroKnowledge}
-                />
 
-                {/* Current Step Info */}
-                <div className="text-center mt-6 mb-4">
-                  <p className="text-lg font-medium text-white mb-2">
-                    {uploadSteps[currentStep]?.label || 'Processing...'}
-                  </p>
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-
-                {/* Hash Display */}
-                {currentHash && (
-                  <div className="text-xs text-slate-400 text-center">
-                    <span>SHA-256 hash: </span>
-                    <span className="font-mono text-purple-400">
-                      {currentHash.substring(0, 32)}...
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-400">
           <div className="flex items-center space-x-2">
@@ -501,7 +461,8 @@ export default function FileUpload() {
         fileName={selectedFiles[0]?.name || ""}
         encrypt={encrypt || zeroKnowledge}
         onUploadComplete={(transactionId) => {
-          // Handle successful upload
+          // Handle successful upload - the modal handles the visual feedback
+          // The actual file upload to server happens after modal completes
           if (selectedFiles[0]) {
             handleFileUpload(selectedFiles[0]);
           }
