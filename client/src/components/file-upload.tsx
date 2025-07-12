@@ -49,7 +49,7 @@ export default function FileUpload() {
   };
 
   const passwordValidation = validatePassword(password);
-  const canUpload = selectedFiles.length > 0 && (!zeroKnowledge || passwordValidation.isValid);
+  const canUpload = selectedFiles.length > 0 && (!(encrypt || zeroKnowledge) || passwordValidation.isValid);
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -98,8 +98,8 @@ export default function FileUpload() {
   };
 
   const handleFileUpload = useCallback(async (file: File) => {
-    // Validate zero-knowledge password if enabled
-    if (zeroKnowledge && !passwordValidation.isValid) {
+    // Validate password if encryption is enabled
+    if ((encrypt || zeroKnowledge) && !passwordValidation.isValid) {
       toast({
         title: "Invalid password",
         description: "Please enter a strong password that meets all requirements",
@@ -285,6 +285,7 @@ export default function FileUpload() {
                             setEncrypt(checked as boolean);
                             if (checked) {
                               setZeroKnowledge(false);
+                            } else {
                               setPassword("");
                             }
                           }}
@@ -292,7 +293,7 @@ export default function FileUpload() {
                         />
                         <label htmlFor="encrypt-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
                           <Lock className="text-purple-400" size={16} />
-                          <span>Encrypt file with auto-generated password</span>
+                          <span>Encrypt file with custom password</span>
                         </label>
                       </div>
                       
@@ -318,18 +319,18 @@ export default function FileUpload() {
                     </div>
                   </div>
                   
-                  {/* Password field - shown when zero-knowledge is checked */}
-                  {zeroKnowledge && (
+                  {/* Password field - shown when either encryption option is checked */}
+                  {(encrypt || zeroKnowledge) && (
                     <div className="border-t border-gray-700 pt-4">
                       <div className="space-y-4">
                         <div className="flex items-center space-x-2 mb-4">
                           <Key className="text-blue-400" size={18} />
-                          <h4 className="text-sm font-medium text-white">Zero-Knowledge Password</h4>
+                          <h4 className="text-sm font-medium text-white">Encryption Password</h4>
                         </div>
                         
                         <div className="space-y-3">
                           <Label htmlFor="password" className="text-sm text-slate-300">
-                            Enter a strong password for zero-knowledge encryption
+                            Enter a strong password for file encryption
                           </Label>
                           <div className="relative">
                             <Input
@@ -419,7 +420,7 @@ export default function FileUpload() {
                     )}
                   </Button>
                   
-                  {zeroKnowledge && !passwordValidation.isValid && (
+                  {(encrypt || zeroKnowledge) && !passwordValidation.isValid && (
                     <p className="text-red-400 text-sm text-center">
                       Please enter a strong password before uploading
                     </p>
