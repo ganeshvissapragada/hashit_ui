@@ -16,8 +16,16 @@ export default function FileUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [encrypt, setEncrypt] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepProgress, setStepProgress] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const uploadSteps = [
+    { id: 'encrypt', label: 'Encrypting File', icon: Lock, color: 'text-yellow-400' },
+    { id: 'key', label: 'Generating Key', icon: Shield, color: 'text-blue-400' },
+    { id: 'upload', label: 'Uploading to Blockchain', icon: CloudUpload, color: 'text-green-400' }
+  ];
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -42,29 +50,52 @@ export default function FileUpload() {
     },
   });
 
+  const animateStep = (stepIndex: number, duration: number = 2000) => {
+    return new Promise<void>((resolve) => {
+      setCurrentStep(stepIndex);
+      setStepProgress(0);
+      
+      const startTime = Date.now();
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        setStepProgress(progress * 100);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          resolve();
+        }
+      };
+      
+      requestAnimationFrame(animate);
+    });
+  };
+
   const handleFileUpload = useCallback(async (file: File) => {
     setIsUploading(true);
     setUploadProgress(0);
     setCurrentHash("");
+    setCurrentStep(encrypt ? 0 : 1); // Start from encryption or key generation
+    setStepProgress(0);
 
     try {
-      // Generate SHA-256 hash
-      setUploadProgress(25);
+      // Step 1: Encryption (if enabled)
+      if (encrypt) {
+        await animateStep(0, 1500);
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // Step 2: Generate SHA-256 hash (Key Generation)
+      await animateStep(1, 1200);
       const hash = await generateSHA256(file);
       setCurrentHash(hash);
-      setUploadProgress(50);
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Simulate blockchain upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.random() * 10;
-        });
-      }, 200);
-
+      // Step 3: Upload to blockchain
+      await animateStep(2, 2000);
+      
       // Prepare form data
       const formData = new FormData();
       formData.append("file", file);
@@ -72,18 +103,25 @@ export default function FileUpload() {
 
       // Upload file
       await uploadMutation.mutateAsync(formData);
+      
+      // Complete animation
+      setStepProgress(100);
       setUploadProgress(100);
 
       setTimeout(() => {
         setIsUploading(false);
         setUploadProgress(0);
         setCurrentHash("");
+        setCurrentStep(0);
+        setStepProgress(0);
       }, 1000);
 
     } catch (error) {
       setIsUploading(false);
       setUploadProgress(0);
       setCurrentHash("");
+      setCurrentStep(0);
+      setStepProgress(0);
     }
   }, [encrypt, uploadMutation]);
 
@@ -153,18 +191,87 @@ export default function FileUpload() {
         {isUploading && (
           <div className="mt-6">
             <Card className="bg-gray-900/50 border-indigo-700/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-white">Uploading...</span>
-                  <span className="text-sm text-slate-300">{Math.round(uploadProgress)}%</span>
+              <CardContent className="p-6">
+                {/* Steps Progress */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    {uploadSteps.map((step, index) => {
+                      const Icon = step.icon;
+                      const isActive = currentStep === index;
+                      const isCompleted = currentStep > index;
+                      const shouldShow = encrypt || index !== 0; // Hide encryption step if not encrypting
+                      
+                      if (!shouldShow) return null;
+                      
+                      return (
+                        <div key={step.id} className="flex flex-col items-center relative">
+                          {/* Connection line */}
+                          {index > 0 && (shouldShow || encrypt) && (
+                            <div className={`absolute -left-8 top-5 w-16 h-0.5 transition-all duration-500 ${
+                              isCompleted ? 'bg-green-500' : 'bg-gray-600'
+                            }`}></div>
+                          )}
+                          
+                          {/* Step Icon */}
+                          <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 z-10 ${
+                            isCompleted 
+                              ? 'bg-green-500 border-green-500' 
+                              : isActive 
+                                ? 'bg-purple-500 border-purple-500 animate-pulse' 
+                                : 'border-gray-600 bg-gray-800'
+                          }`}>
+                            <Icon className="text-white" size={16} />
+                          </div>
+                          
+                          {/* Step Label */}
+                          <div className={`text-sm font-medium mt-2 transition-colors duration-300 text-center ${
+                            isCompleted 
+                              ? 'text-green-400' 
+                              : isActive 
+                                ? 'text-purple-400' 
+                                : 'text-gray-400'
+                          }`}>
+                            {step.label}
+                          </div>
+                          
+                          {/* Progress Bar for Active Step */}
+                          {isActive && (
+                            <div className="mt-2 w-20">
+                              <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div 
+                                  className="bg-purple-500 h-2 rounded-full transition-all duration-200 ease-out"
+                                  style={{ width: `${stepProgress}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <Progress value={uploadProgress} className="mb-2" />
-                <div className="text-xs text-slate-400">
-                  <span>SHA-256 hash: </span>
-                  <span className="font-mono text-purple-400">
-                    {currentHash || "Calculating..."}
-                  </span>
+
+                {/* Current Step Info */}
+                <div className="text-center mb-4">
+                  <p className="text-lg font-medium text-white mb-2">
+                    {uploadSteps[currentStep]?.label || 'Processing...'}
+                  </p>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
                 </div>
+
+                {/* Hash Display */}
+                {currentHash && (
+                  <div className="text-xs text-slate-400 text-center">
+                    <span>SHA-256 hash: </span>
+                    <span className="font-mono text-purple-400">
+                      {currentHash.substring(0, 32)}...
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
