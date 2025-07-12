@@ -45,60 +45,7 @@ export default function Sidebar() {
         </CardContent>
       </Card>
 
-      {/* Network Status */}
-      <Card className="bg-gray-900/30 border-indigo-700/50">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Network className="text-purple-400 mr-2" size={20} />
-            Network Status
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300">Network</span>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-green-400 font-medium">Online</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300">Gas Price</span>
-              <span className="text-white font-medium">{storageData.networkStatus.gasPrice}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-300">Block Height</span>
-              <span className="text-white font-medium">{storageData.networkStatus.blockHeight}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Security Info */}
-      <Card className="bg-gray-900/30 border-indigo-700/50">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <Shield className="text-purple-400 mr-2" size={20} />
-            Security Features
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <Lock className="text-green-400" size={16} />
-              <span className="text-sm text-slate-300">End-to-end encryption</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Hash className="text-green-400" size={16} />
-              <span className="text-sm text-slate-300">SHA-256 hashing</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Box className="text-green-400" size={16} />
-              <span className="text-sm text-slate-300">Blockchain storage</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Infinity className="text-green-400" size={16} />
-              <span className="text-sm text-slate-300">Immutable records</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

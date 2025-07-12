@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Blockchain File Transfer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #000814 0%, #001d3d 50%, #003566 100%);
+            overflow: hidden;
+            height: 100vh;
+            color: white;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .upload-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 30, 60, 0.9);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            pointer-events: auto;
+            transition: all 0.3s ease;
+            min-width: 400px;
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
+        }
+
+        .upload-zone.processing {
+            border-color: rgba(0, 255, 136, 0.5);
+            box-shadow: 0 20px 40px rgba(0, 255, 136, 0.3);
+        }
+
+        .upload-zone.completed {
+            border-color: rgba(255, 193, 7, 0.5);
+            box-shadow: 0 20px 40px rgba(255, 193, 7, 0.3);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .upload-text {
+            font-size: 22px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-bottom: 30px;
+            color: #a0a0a0;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #00d4ff, #0077be);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .step.active .step-circle {
+            background: linear-gradient(45deg, #00d4ff, #0077be);
+            border-color: #00d4ff;
+            animation: pulse 2s infinite;
+        }
+
+        .step.completed .step-circle {
+            background: linear-gradient(45deg, #00ff88, #00cc6a);
+            border-color: #00ff88;
+        }
+
+        .step-line {
+            position: absolute;
+            top: 20px;
+            left: 60%;
+            width: 80%;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .step.completed .step-line {
+            background: linear-gradient(90deg, #00ff88, #00d4ff);
+        }
+
+        .step:last-child .step-line {
+            display: none;
+        }
+
+        .step-text {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .step.active .step-text {
+            opacity: 1;
+            color: #00d4ff;
+        }
+
+        .step.completed .step-text {
+            opacity: 1;
+            color: #00ff88;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+
+        .blockchain-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            font-size: 14px;
+            min-width: 250px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .info-title {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .network-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            font-size: 14px;
+            min-width: 200px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .network-nodes {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .node {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(0, 255, 136, 0.3);
+            border: 2px solid #00ff88;
+            animation: blink 2s infinite;
+        }
+
+        .node.active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .transaction-id {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .transaction-id.visible {
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 0.3; }
+            51%, 100% { opacity: 1; }
+        }
+
+        @keyframes processing {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .processing .upload-icon {
+            animation: processing 2s linear infinite;
+        }
+
+        .earth-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div id="ui-overlay">
+            <div class="upload-zone" id="upload-zone">
+                <div class="upload-icon">🌍</div>
+                <div class="upload-text">Global Blockchain Transfer</div>
+                <div class="upload-subtext">Secure, decentralized file storage across the globe</div>
+                
+                <input type="file" class="file-input" id="file-input" multiple>
+                <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+                    Choose Files
+                </button>
+
+                <div class="progress-steps" id="progress-steps" style="display: none;">
+                    <div class="step" id="step-1">
+                        <div class="step-circle">1</div>
+                        <div class="step-line"></div>
+                        <div class="step-text">Generating ID</div>
+                    </div>
+                    <div class="step" id="step-2">
+                        <div class="step-circle">2</div>
+                        <div class="step-line"></div>
+                        <div class="step-text">Encrypting</div>
+                    </div>
+                    <div class="step" id="step-3">
+                        <div class="step-circle">3</div>
+                        <div class="step-text">Writing on Blockchain</div>
+                    </div>
+                </div>
+
+                <div class="progress-bar" id="progress-bar" style="display: none;">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="status-text" id="status-text">Ready to upload to global blockchain</div>
+            </div>
+
+            <div class="transaction-id" id="transaction-id">
+                <strong>Transaction ID:</strong> <span id="tx-hash"></span>
+            </div>
+
+            <div class="earth-info">
+                <div>Transaction Status: <span id="transaction-status">Ready</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class GlobalBlockchainTransfer {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.earth = null;
+                this.satellites = [];
+                this.connectionLines = [];
+                this.particles = [];
+                this.isProcessing = false;
+                this.currentStep = 0;
+                this.blockCount = 847392; // Placeholder for block count
+                
+                this.init();
+                this.setupEventListeners();
+                this.animate();
+            }
+
+            init() {
+                // Scene setup
+                this.scene = new THREE.Scene();
+                this.scene.fog = new THREE.Fog(0x000814, 100, 300);
+
+                // Camera setup
+                this.camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    1000
+                );
+                this.camera.position.set(0, 20, 50);
+                this.camera.lookAt(0, 0, 0);
+
+                // Renderer setup
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setClearColor(0x000814, 1);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
+
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                this.scene.add(ambientLight);
+
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(50, 50, 50);
+                directionalLight.castShadow = true;
+                this.scene.add(directionalLight);
+
+                // Create Earth
+                this.createEarth();
+                
+                // Create satellites
+                this.createSatellites();
+                
+                // Create particle field
+                this.createParticleField();
+            }
+
+            createEarth() {
+                const earthGeometry = new THREE.SphereGeometry(8, 64, 32);
+                
+                // Create earth material with texture-like appearance
+                const earthMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x2e8b57,
+                    shininess: 0.1,
+                    transparent: true,
+                    opacity: 0.9
+                });
+
+                this.earth = new THREE.Mesh(earthGeometry, earthMaterial);
+                this.earth.receiveShadow = true;
+                this.scene.add(this.earth);
+
+                // Create atmosphere
+                const atmosphereGeometry = new THREE.SphereGeometry(8.5, 64, 32);
+                const atmosphereMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00d4ff,
+                    transparent: true,
+                    opacity: 0.1,
+                    side: THREE.BackSide
+                });
+                const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+                this.scene.add(atmosphere);
+
+                // Create continents (simplified)
+                this.createContinents();
+            }
+
+            createContinents() {
+                const continentGeometry = new THREE.SphereGeometry(8.1, 32, 16);
+                const continentMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x8b4513,
+                    transparent: true,
+                    opacity: 0.8
+                });
+
+                // Create several continent-like shapes
+                for (let i = 0; i < 6; i++) {
+                    const continent = new THREE.Mesh(continentGeometry, continentMaterial);
+                    continent.scale.set(
+                        0.3 + Math.random() * 0.4,
+                        0.2 + Math.random() * 0.3,
+                        0.3 + Math.random() * 0.4
+                    );
+                    continent.position.set(
+                        (Math.random() - 0.5) * 16,
+                        (Math.random() - 0.5) * 16,
+                        (Math.random() - 0.5) * 16
+                    );
+                    continent.position.normalize().multiplyScalar(8.05);
+                    this.earth.add(continent);
+                }
+            }
+
+            createSatellites() {
+                const satelliteGeometry = new THREE.BoxGeometry(0.5, 0.5, 1);
+                const satelliteMaterial = new THREE.MeshPhongMaterial({
+                    color: 0x00d4ff,
+                    emissive: 0x001122
+                });
+
+                for (let i = 0; i < 24; i++) {
+                    const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+                    
+                    // Position satellites in orbit
+                    const angle = (i / 24) * Math.PI * 2;
+                    const radius = 15 + Math.random() * 10;
+                    const height = (Math.random() - 0.5) * 20;
+                    
+                    satellite.position.set(
+                        Math.cos(angle) * radius,
+                        height,
+                        Math.sin(angle) * radius
+                    );
+                    
+                    satellite.userData = {
+                        angle: angle,
+                        radius: radius,
+                        height: height,
+                        speed: 0.005 + Math.random() * 0.01
+                    };
+                    
+                    this.satellites.push(satellite);
+                    this.scene.add(satellite);
+                }
+            }
+createParticleField() {
+                const particleGeometry = new THREE.BufferGeometry();
+                const particleCount = 2000;
+                const positions = new Float32Array(particleCount * 3);
+                const colors = new Float32Array(particleCount * 3);
+
+                for (let i = 0; i < particleCount; i++) {
+                    // Spread particles across a much larger area to fill the screen
+                    positions[i * 3] = (Math.random() - 0.5) * 400;
+                    positions[i * 3 + 1] = (Math.random() - 0.5) * 400;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * 400;
+
+                    const color = new THREE.Color();
+                    color.setHSL(0.6 + Math.random() * 0.2, 0.8, 0.2 + Math.random() * 0.3);
+                    colors[i * 3] = color.r;
+                    colors[i * 3 + 1] = color.g;
+                    colors[i * 3 + 2] = color.b;
+                }
+
+                particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+                const particleMaterial = new THREE.PointsMaterial({
+                    size: 0.5,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.4
+                });
+
+                this.particleField = new THREE.Points(particleGeometry, particleMaterial);
+                this.scene.add(this.particleField);
+            }
+
+            setupEventListeners() {
+                const fileInput = document.getElementById('file-input');
+                const uploadZone = document.getElementById('upload-zone');
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.startUpload(e.target.files);
+                    }
+                });
+
+                // Drag and drop
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+                });
+
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+                });
+
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.style.borderColor = 'rgba(0, 212, 255, 0.3)';
+                    if (e.dataTransfer.files.length > 0) {
+                        this.startUpload(e.dataTransfer.files);
+                    }
+                });
+
+                // Resize handler (already in init, but good to have here too for clarity if separating)
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+
+            startUpload(files) {
+                if (this.isProcessing) return;
+                
+                this.isProcessing = true;
+                this.currentStep = 0;
+                
+                const uploadZone = document.getElementById('upload-zone');
+                const progressSteps = document.getElementById('progress-steps');
+                const progressBar = document.getElementById('progress-bar');
+                
+                uploadZone.classList.add('processing');
+                
+                // Show progress elements
+                progressSteps.style.display = 'flex';
+                progressBar.style.display = 'block';
+                
+                // Reset all steps
+                document.querySelectorAll('.step').forEach(step => {
+                    step.classList.remove('active', 'completed');
+                });
+                
+                // Start the three-step process
+                this.executeStep1(files);
+            }
+
+            executeStep1(files) {
+                // Step 1: Generating ID
+                this.currentStep = 1;
+                this.activateStep(1);
+                
+                const statusText = document.getElementById('status-text');
+                statusText.textContent = 'Generating unique blockchain ID...';
+                
+                // Generate transaction ID
+                const txId = this.generateTransactionId();
+                
+                // Simulate processing time
+                setTimeout(() => {
+                    this.completeStep(1);
+                    this.updateProgress(33);
+                    this.executeStep2(files, txId);
+                }, 2000);
+            }
+
+            executeStep2(files, txId) {
+                // Step 2: Encrypting
+                this.currentStep = 2;
+                this.activateStep(2);
+                
+                const statusText = document.getElementById('status-text');
+                statusText.textContent = 'Encrypting files with quantum encryption...';
+                
+                // Create connection lines between earth points
+                this.createEncryptionEffect();
+                
+                setTimeout(() => {
+                    this.completeStep(2);
+                    this.updateProgress(66);
+                    this.executeStep3(files, txId);
+                }, 3000);
+            }
+
+            executeStep3(files, txId) {
+                // Step 3: Writing on Blockchain
+                this.currentStep = 3;
+                this.activateStep(3);
+                
+                const statusText = document.getElementById('status-text');
+                statusText.textContent = 'Writing to blockchain network...';
+                
+                // Show transaction ID
+                const txIdElement = document.getElementById('tx-hash');
+                txIdElement.textContent = txId;
+                document.getElementById('transaction-id').classList.add('visible');
+                
+                setTimeout(() => {
+                    this.completeStep(3);
+                    this.updateProgress(100);
+                    this.completeUpload(files);
+                }, 4000);
+            }
+
+            activateStep(stepNumber) {
+                const step = document.getElementById(`step-${stepNumber}`);
+                step.classList.add('active');
+            }
+
+            completeStep(stepNumber) {
+                const step = document.getElementById(`step-${stepNumber}`);
+                step.classList.remove('active');
+                step.classList.add('completed');
+            }
+
+            updateProgress(percentage) {
+                const progressFill = document.getElementById('progress-fill');
+                progressFill.style.width = `${percentage}%`;
+            }
+
+            generateTransactionId() {
+                const chars = '0123456789abcdef';
+                let result = '0x';
+                for (let i = 0; i < 64; i++) {
+                    result += chars[Math.floor(Math.random() * chars.length)];
+                }
+                return result;
+            }
+            
+
+            createEncryptionEffect() {
+                // Clear existing connections
+                this.connectionLines.forEach(line => this.scene.remove(line));
+                this.connectionLines = [];
+
+                // Create encryption effect around Earth
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const startPoint = new THREE.Vector3(
+                        Math.cos(angle) * 10,
+                        0,
+                        Math.sin(angle) * 10
+                    );
+                    const endPoint = new THREE.Vector3(
+                        Math.cos(angle + Math.PI) * 10,
+                        0,
+                        Math.sin(angle + Math.PI) * 10
+                    );
+                    
+                    const geometry = new THREE.BufferGeometry().setFromPoints([
+                        startPoint,
+                        endPoint
+                    ]);
+                    
+                    const material = new THREE.LineBasicMaterial({
+                        color: 0x00ff88,
+                        transparent: true,
+                        opacity: 0.6
+                    });
+                    
+                    const line = new THREE.Line(geometry, material);
+                    this.scene.add(line);
+                    this.connectionLines.push(line);
+                }
+            }
+
+            completeUpload(files) {
+                const uploadZone = document.getElementById('upload-zone');
+                const statusText = document.getElementById('status-text');
+                
+                uploadZone.classList.remove('processing');
+                uploadZone.classList.add('completed');
+                statusText.textContent = `${files.length} file(s) successfully stored on blockchain!`;
+                
+                // Update transaction status
+                document.getElementById('transaction-status').textContent = 'Complete';
+                
+                // Reset after 5 seconds
+                setTimeout(() => {
+                    this.resetUpload();
+                }, 5000);
+            }
+
+            resetUpload() {
+                const uploadZone = document.getElementById('upload-zone');
+                const statusText = document.getElementById('status-text');
+                const progressFill = document.getElementById('progress-fill');
+                const progressSteps = document.getElementById('progress-steps');
+                const progressBar = document.getElementById('progress-bar');
+                
+                uploadZone.classList.remove('processing', 'completed');
+                statusText.textContent = 'Ready to upload to global blockchain';
+                progressFill.style.width = '0%';
+                
+                // Hide progress elements
+                progressSteps.style.display = 'none';
+                progressBar.style.display = 'none';
+                
+                // Reset steps
+                document.querySelectorAll('.step').forEach(step => {
+                    step.classList.remove('active', 'completed');
+                });
+                
+                // Hide transaction ID
+                document.getElementById('transaction-id').classList.remove('visible');
+                
+                // Update transaction status
+                document.getElementById('transaction-status').textContent = 'Ready';
+                
+                // Clear connections
+                this.connectionLines.forEach(line => this.scene.remove(line));
+                this.connectionLines = [];
+                
+                this.isProcessing = false;
+                this.currentStep = 0;
+                
+                // Reset file input
+                document.getElementById('file-input').value = '';
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                const time = Date.now() * 0.001;
+                
+                // Rotate Earth
+                if (this.earth) {
+                    this.earth.rotation.y += 0.005;
+                }
+                
+                // Animate satellites
+                this.satellites.forEach(satellite => {
+                    satellite.userData.angle += satellite.userData.speed;
+                    satellite.position.x = Math.cos(satellite.userData.angle) * satellite.userData.radius;
+                    satellite.position.z = Math.sin(satellite.userData.angle) * satellite.userData.radius;
+                    satellite.rotation.x += 0.01;
+                    satellite.rotation.y += 0.01;
+                });
+                
+                // Animate particle field
+                if (this.particleField) {
+                    this.particleField.rotation.y += 0.001;
+                }
+                
+                // Update connection lines during processing
+                if (this.isProcessing && this.connectionLines.length > 0) {
+                    this.connectionLines.forEach(line => {
+                        line.material.opacity = 0.3 + Math.sin(time * 3) * 0.3;
+                    });
+                }
+                
+                // Camera movement
+                this.camera.position.x = Math.sin(time * 0.1) * 10;
+                this.camera.position.z = Math.cos(time * 0.1) * 10 + 40;
+                this.camera.lookAt(0, 0, 0);
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Initialize the application
+        new GlobalBlockchainTransfer();
+    </script>
+</body>
+</html>

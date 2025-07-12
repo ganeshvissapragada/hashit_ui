@@ -13,7 +13,7 @@ import { generateSHA256, encryptFile } from "@/lib/crypto";
 import { addRecentUpload, updateStorageUsed } from "@/lib/storage";
 import { apiRequest } from "@/lib/queryClient";
 import Upload3DAnimation from "./upload-3d-animation";
-import BlockchainUploadModal from "./blockchain-upload-modal";
+import BlockchainUploadModalNew from "./blockchain-upload-modal-new";
 
 export default function FileUpload() {
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -455,7 +455,7 @@ export default function FileUpload() {
 
     {/* Blockchain Upload Modal */}
     {showBlockchainModal && (
-      <BlockchainUploadModal
+      <BlockchainUploadModalNew
         isOpen={showBlockchainModal}
         onClose={() => setShowBlockchainModal(false)}
         fileName={selectedFiles[0]?.name || ""}
