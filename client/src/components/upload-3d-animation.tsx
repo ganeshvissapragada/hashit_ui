@@ -60,105 +60,222 @@ export default function Upload3DAnimation({
     const nodes: THREE.Mesh[] = [];
     const connections: THREE.Line[] = [];
 
-    // Create central Earth
-    const earthGeometry = new THREE.SphereGeometry(0.8, 64, 64);
+    // Create realistic Earth with detailed texture
+    const earthGeometry = new THREE.SphereGeometry(1.2, 128, 128);
     
-    // Create Earth texture using procedural generation
+    // Create realistic Earth texture
     const earthCanvas = document.createElement('canvas');
-    earthCanvas.width = 1024;
-    earthCanvas.height = 512;
+    earthCanvas.width = 2048;
+    earthCanvas.height = 1024;
     const earthCtx = earthCanvas.getContext('2d')!;
     
-    // Create Earth-like texture
-    const gradient = earthCtx.createLinearGradient(0, 0, 1024, 512);
-    gradient.addColorStop(0, '#1a472a');
-    gradient.addColorStop(0.3, '#2d5a3d');
-    gradient.addColorStop(0.6, '#1e3a8a');
-    gradient.addColorStop(1, '#1e40af');
-    earthCtx.fillStyle = gradient;
-    earthCtx.fillRect(0, 0, 1024, 512);
+    // Create Earth base with realistic colors
+    const earthGradient = earthCtx.createRadialGradient(1024, 512, 0, 1024, 512, 1024);
+    earthGradient.addColorStop(0, '#1a365d'); // Deep ocean blue
+    earthGradient.addColorStop(0.3, '#2563eb'); // Ocean blue
+    earthGradient.addColorStop(0.6, '#1e40af'); // Deep blue
+    earthGradient.addColorStop(1, '#0f172a'); // Dark edges
+    earthCtx.fillStyle = earthGradient;
+    earthCtx.fillRect(0, 0, 2048, 1024);
     
-    // Add continent-like patterns
-    for (let i = 0; i < 100; i++) {
-      const x = Math.random() * 1024;
-      const y = Math.random() * 512;
-      const radius = Math.random() * 30 + 10;
+    // Add realistic continent shapes and landmasses
+    const continents = [
+      // North America
+      { x: 300, y: 300, width: 400, height: 300, color: '#22543d' },
+      // Europe/Asia
+      { x: 900, y: 250, width: 600, height: 200, color: '#276749' },
+      // Africa
+      { x: 850, y: 450, width: 200, height: 400, color: '#2d5016' },
+      // South America
+      { x: 500, y: 600, width: 150, height: 300, color: '#22543d' },
+      // Australia
+      { x: 1400, y: 700, width: 200, height: 100, color: '#2d5016' },
+    ];
+    
+    continents.forEach(continent => {
+      earthCtx.fillStyle = continent.color;
+      earthCtx.fillRect(continent.x, continent.y, continent.width, continent.height);
       
-      earthCtx.beginPath();
-      earthCtx.arc(x, y, radius, 0, Math.PI * 2);
-      earthCtx.fillStyle = Math.random() > 0.5 ? '#22c55e' : '#16a34a';
-      earthCtx.fill();
+      // Add coastline details
+      earthCtx.fillStyle = '#1e3a8a';
+      earthCtx.fillRect(continent.x - 2, continent.y - 2, continent.width + 4, continent.height + 4);
+      earthCtx.fillStyle = continent.color;
+      earthCtx.fillRect(continent.x, continent.y, continent.width, continent.height);
+    });
+    
+    // Add cloud layer texture
+    const cloudCanvas = document.createElement('canvas');
+    cloudCanvas.width = 2048;
+    cloudCanvas.height = 1024;
+    const cloudCtx = cloudCanvas.getContext('2d')!;
+    
+    for (let i = 0; i < 200; i++) {
+      const x = Math.random() * 2048;
+      const y = Math.random() * 1024;
+      const radius = Math.random() * 40 + 20;
+      
+      cloudCtx.beginPath();
+      cloudCtx.arc(x, y, radius, 0, Math.PI * 2);
+      cloudCtx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.3 + 0.1})`;
+      cloudCtx.fill();
     }
     
     const earthTexture = new THREE.CanvasTexture(earthCanvas);
-    const earthMaterial = new THREE.MeshBasicMaterial({ map: earthTexture });
+    const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
+    
+    // Create Earth material with lighting
+    const earthMaterial = new THREE.MeshLambertMaterial({ 
+      map: earthTexture,
+      transparent: true,
+      opacity: 0.9
+    });
+    
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.position.set(0, 0, 0);
     scene.add(earth);
     
-    // Add Earth glow
-    const earthGlowGeometry = new THREE.SphereGeometry(0.85, 32, 32);
-    const earthGlowMaterial = new THREE.MeshBasicMaterial({
+    // Add cloud layer
+    const cloudGeometry = new THREE.SphereGeometry(1.21, 64, 64);
+    const cloudMaterial = new THREE.MeshLambertMaterial({
+      map: cloudTexture,
+      transparent: true,
+      opacity: 0.4
+    });
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    clouds.position.copy(earth.position);
+    scene.add(clouds);
+    
+    // Add atmospheric glow (multiple layers for realism)
+    const atmosphereGeometry = new THREE.SphereGeometry(1.35, 64, 64);
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        void main() {
+          float intensity = pow(0.8 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+          gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+        }
+      `,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide,
+      transparent: true
+    });
+    
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+    atmosphere.position.copy(earth.position);
+    scene.add(atmosphere);
+    
+    // Add outer glow
+    const outerGlowGeometry = new THREE.SphereGeometry(1.5, 32, 32);
+    const outerGlowMaterial = new THREE.MeshBasicMaterial({
       color: 0x4ade80,
       transparent: true,
-      opacity: 0.2
+      opacity: 0.15
     });
-    const earthGlow = new THREE.Mesh(earthGlowGeometry, earthGlowMaterial);
-    earthGlow.position.copy(earth.position);
-    scene.add(earthGlow);
+    const outerGlow = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
+    outerGlow.position.copy(earth.position);
+    scene.add(outerGlow);
+    
+    // Add lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 3, 5);
+    scene.add(directionalLight);
+
+    // Create network nodes on Earth surface like in Filecoin
+    const networkNodes = [];
+    const nodePositions = [
+      // Spread nodes across Earth surface
+      { lat: 40.7128, lon: -74.0060 }, // New York
+      { lat: 51.5074, lon: -0.1278 },  // London
+      { lat: 35.6762, lon: 139.6503 }, // Tokyo
+      { lat: -33.8688, lon: 151.2093 }, // Sydney
+      { lat: 37.7749, lon: -122.4194 }, // San Francisco
+      { lat: 55.7558, lon: 37.6176 },  // Moscow
+      { lat: 28.6139, lon: 77.2090 },  // Delhi
+      { lat: -23.5505, lon: -46.6333 }, // São Paulo
+    ];
 
     visibleSteps.forEach((step, index) => {
-      // Create satellite nodes orbiting Earth
-      const geometry = new THREE.SphereGeometry(0.15, 32, 32);
-      const material = new THREE.MeshBasicMaterial({ 
-        color: 0x374151,
+      // Get position for this step
+      const pos = nodePositions[index % nodePositions.length];
+      
+      // Convert lat/lon to 3D position on sphere
+      const phi = (90 - pos.lat) * (Math.PI / 180);
+      const theta = (pos.lon + 180) * (Math.PI / 180);
+      const earthRadius = 1.2;
+      
+      const x = earthRadius * Math.sin(phi) * Math.cos(theta);
+      const y = earthRadius * Math.cos(phi);
+      const z = earthRadius * Math.sin(phi) * Math.sin(theta);
+      
+      // Create glowing node
+      const nodeGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+      const nodeMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x666666,
         transparent: true,
         opacity: 0.8
       });
-      const node = new THREE.Mesh(geometry, material);
+      const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+      node.position.set(x, y, z);
       
-      // Position nodes in orbit around Earth
-      const radius = 1.5;
-      const angle = (index / visibleSteps.length) * Math.PI * 2;
-      node.position.x = Math.cos(angle) * radius;
-      node.position.y = Math.sin(angle) * radius;
-      node.position.z = 0;
-      
-      // Store orbital data
-      node.userData.orbitRadius = radius;
-      node.userData.orbitAngle = angle;
-      node.userData.orbitSpeed = 0.02;
-      
-      scene.add(node);
-      nodes.push(node);
-
-      // Create connection lines to Earth
-      const points = [];
-      points.push(new THREE.Vector3(0, 0, 0)); // Earth center
-      points.push(node.position.clone());
-      
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-      const lineMaterial = new THREE.LineBasicMaterial({ 
-        color: 0x374151,
-        transparent: true,
-        opacity: 0.3
-      });
-      const line = new THREE.Line(lineGeometry, lineMaterial);
-      scene.add(line);
-      connections.push(line);
-      node.userData.connectionLine = line;
-
-      // Add satellite glow
-      const glowGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+      // Add pulsing glow around node
+      const glowGeometry = new THREE.SphereGeometry(0.08, 16, 16);
       const glowMaterial = new THREE.MeshBasicMaterial({
         color: step.color,
         transparent: true,
-        opacity: 0.1
+        opacity: 0.3
       });
       const glow = new THREE.Mesh(glowGeometry, glowMaterial);
       glow.position.copy(node.position);
+      
+      // Add outer glow ring
+      const ringGeometry = new THREE.RingGeometry(0.1, 0.15, 16);
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: step.color,
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide
+      });
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.position.copy(node.position);
+      ring.lookAt(0, 0, 0); // Face camera
+      
+      scene.add(node);
       scene.add(glow);
+      scene.add(ring);
+      
+      nodes.push(node);
       node.userData.glow = glow;
+      node.userData.ring = ring;
+      node.userData.step = step;
+      
+      // Create connection beam to space
+      const beamGeometry = new THREE.CylinderGeometry(0.005, 0.005, 2, 8);
+      const beamMaterial = new THREE.MeshBasicMaterial({
+        color: step.color,
+        transparent: true,
+        opacity: 0.0
+      });
+      const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+      
+      // Position beam from node outward
+      const beamPos = node.position.clone().multiplyScalar(1.5);
+      beam.position.copy(beamPos);
+      beam.lookAt(node.position);
+      beam.rotateX(Math.PI / 2);
+      
+      scene.add(beam);
+      connections.push(beam);
+      node.userData.beam = beam;
     });
 
     // Add star field background
@@ -210,7 +327,9 @@ export default function Upload3DAnimation({
 
     // Store references
     scene.userData.earth = earth;
-    scene.userData.earthGlow = earthGlow;
+    scene.userData.clouds = clouds;
+    scene.userData.atmosphere = atmosphere;
+    scene.userData.outerGlow = outerGlow;
     scene.userData.stars = stars;
     scene.userData.particles = particles;
 
@@ -221,10 +340,19 @@ export default function Upload3DAnimation({
     const animate = () => {
       frameRef.current = requestAnimationFrame(animate);
 
-      // Rotate Earth
+      // Rotate Earth slowly
       if (scene.userData.earth) {
-        scene.userData.earth.rotation.y += 0.005;
-        scene.userData.earthGlow.rotation.y += 0.005;
+        scene.userData.earth.rotation.y += 0.003;
+      }
+      
+      // Rotate clouds slightly faster
+      if (scene.userData.clouds) {
+        scene.userData.clouds.rotation.y += 0.004;
+      }
+      
+      // Subtle atmosphere rotation
+      if (scene.userData.atmosphere) {
+        scene.userData.atmosphere.rotation.y += 0.001;
       }
 
       // Animate star field
@@ -238,35 +366,28 @@ export default function Upload3DAnimation({
         scene.userData.particles.rotation.x += 0.005;
       }
 
-      // Animate satellites in orbit
+      // Animate network nodes
       nodes.forEach((node, index) => {
-        if (node.userData.orbitRadius) {
-          // Update orbital position
-          node.userData.orbitAngle += node.userData.orbitSpeed;
-          const x = Math.cos(node.userData.orbitAngle) * node.userData.orbitRadius;
-          const y = Math.sin(node.userData.orbitAngle) * node.userData.orbitRadius;
-          node.position.x = x;
-          node.position.y = y;
-          
-          // Update glow position
-          if (node.userData.glow) {
-            node.userData.glow.position.copy(node.position);
-          }
-          
-          // Update connection line
-          if (node.userData.connectionLine) {
-            const line = node.userData.connectionLine;
-            const positions = line.geometry.attributes.position.array as Float32Array;
-            positions[3] = x; // End point x
-            positions[4] = y; // End point y
-            positions[5] = 0; // End point z
-            line.geometry.attributes.position.needsUpdate = true;
-          }
+        const time = Date.now() * 0.001;
+        
+        // Pulsing glow effect
+        if (node.userData.glow) {
+          const pulseScale = 1 + 0.3 * Math.sin(time * 2 + index);
+          node.userData.glow.scale.setScalar(pulseScale);
         }
         
-        // Rotate satellites
-        node.rotation.x += 0.02;
-        node.rotation.y += 0.02;
+        // Rotating ring effect
+        if (node.userData.ring) {
+          node.userData.ring.rotation.z += 0.02;
+          const ringPulse = 0.5 + 0.3 * Math.sin(time * 3 + index);
+          node.userData.ring.material.opacity = ringPulse;
+        }
+        
+        // Beam animation
+        if (node.userData.beam) {
+          const beamPulse = 0.1 + 0.2 * Math.sin(time * 4 + index);
+          node.userData.beam.material.opacity = beamPulse;
+        }
       });
 
       renderer.render(scene, camera);
@@ -309,71 +430,76 @@ export default function Upload3DAnimation({
       const material = node.material as THREE.MeshBasicMaterial;
       const glow = node.userData.glow;
       const glowMaterial = glow?.material as THREE.MeshBasicMaterial;
-      const connectionLine = node.userData.connectionLine;
-      const connectionMaterial = connectionLine?.material as THREE.LineBasicMaterial;
+      const ring = node.userData.ring;
+      const ringMaterial = ring?.material as THREE.MeshBasicMaterial;
+      const beam = node.userData.beam;
+      const beamMaterial = beam?.material as THREE.MeshBasicMaterial;
 
       if (currentStep > index) {
-        // Completed step - satellite becomes active
+        // Completed step - node becomes bright and active
         material.color.setHex(step.color);
         material.opacity = 1;
         if (glowMaterial) {
-          glowMaterial.opacity = 0.4;
+          glowMaterial.opacity = 0.6;
           glowMaterial.color.setHex(step.color);
         }
-        if (connectionMaterial) {
-          connectionMaterial.color.setHex(step.color);
-          connectionMaterial.opacity = 0.8;
+        if (ringMaterial) {
+          ringMaterial.color.setHex(step.color);
+          ringMaterial.opacity = 0.4;
+        }
+        if (beamMaterial) {
+          beamMaterial.color.setHex(step.color);
+          beamMaterial.opacity = 0.3;
         }
         
-        // Faster orbit for completed satellites
-        node.userData.orbitSpeed = 0.03;
-        
       } else if (currentStep === index) {
-        // Active step - satellite pulses and glows
+        // Active step - node pulses with energy
         material.color.setHex(step.color);
         material.opacity = 0.9;
         if (glowMaterial) {
-          glowMaterial.opacity = 0.3 + 0.2 * Math.sin(Date.now() * 0.01);
+          glowMaterial.opacity = 0.5 + 0.3 * Math.sin(Date.now() * 0.01);
           glowMaterial.color.setHex(step.color);
         }
-        if (connectionMaterial) {
-          connectionMaterial.color.setHex(step.color);
-          connectionMaterial.opacity = 0.5 + 0.3 * Math.sin(Date.now() * 0.01);
+        if (ringMaterial) {
+          ringMaterial.color.setHex(step.color);
+          ringMaterial.opacity = 0.3 + 0.2 * Math.sin(Date.now() * 0.01);
         }
-        
-        // Medium orbit speed for active satellite
-        node.userData.orbitSpeed = 0.025;
+        if (beamMaterial) {
+          beamMaterial.color.setHex(step.color);
+          beamMaterial.opacity = 0.2 + 0.2 * Math.sin(Date.now() * 0.01);
+        }
         
       } else {
-        // Pending step - satellite is dormant
-        material.color.setHex(0x374151);
-        material.opacity = 0.6;
+        // Pending step - node is dormant
+        material.color.setHex(0x666666);
+        material.opacity = 0.5;
         if (glowMaterial) {
           glowMaterial.opacity = 0.1;
+          glowMaterial.color.setHex(0x666666);
         }
-        if (connectionMaterial) {
-          connectionMaterial.color.setHex(0x374151);
-          connectionMaterial.opacity = 0.2;
+        if (ringMaterial) {
+          ringMaterial.color.setHex(0x666666);
+          ringMaterial.opacity = 0.1;
         }
-        
-        // Slow orbit for pending satellites
-        node.userData.orbitSpeed = 0.015;
+        if (beamMaterial) {
+          beamMaterial.opacity = 0.0;
+        }
       }
     });
 
-    // Update Earth glow based on progress
-    if (sceneRef.current?.userData.earthGlow) {
-      const earthGlow = sceneRef.current.userData.earthGlow;
-      const earthGlowMaterial = earthGlow.material as THREE.MeshBasicMaterial;
+    // Update Earth atmosphere based on progress
+    if (sceneRef.current?.userData.outerGlow) {
+      const outerGlow = sceneRef.current.userData.outerGlow;
+      const outerGlowMaterial = outerGlow.material as THREE.MeshBasicMaterial;
       
       if (currentStep >= visibleSteps.length - 1) {
         // All steps completed - Earth glows brighter
-        earthGlowMaterial.opacity = 0.4;
-        earthGlowMaterial.color.setHex(0x22c55e);
+        outerGlowMaterial.opacity = 0.25;
+        outerGlowMaterial.color.setHex(0x22c55e);
       } else {
         // In progress - subtle glow
-        earthGlowMaterial.opacity = 0.2;
-        earthGlowMaterial.color.setHex(0x4ade80);
+        outerGlowMaterial.opacity = 0.15;
+        outerGlowMaterial.color.setHex(0x4ade80);
       }
     }
 
