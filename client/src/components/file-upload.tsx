@@ -10,6 +10,7 @@ import { CloudUpload, FolderOpen, Lock, HardDrive, Shield, Infinity } from "luci
 import { generateSHA256, encryptFile } from "@/lib/crypto";
 import { addRecentUpload, updateStorageUsed } from "@/lib/storage";
 import { apiRequest } from "@/lib/queryClient";
+import Upload3DAnimation from "./upload-3d-animation";
 
 export default function FileUpload() {
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -192,67 +193,16 @@ export default function FileUpload() {
           <div className="mt-6">
             <Card className="bg-gray-900/50 border-indigo-700/50">
               <CardContent className="p-6">
-                {/* Steps Progress */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between">
-                    {uploadSteps.map((step, index) => {
-                      const Icon = step.icon;
-                      const isActive = currentStep === index;
-                      const isCompleted = currentStep > index;
-                      const shouldShow = encrypt || index !== 0; // Hide encryption step if not encrypting
-                      
-                      if (!shouldShow) return null;
-                      
-                      return (
-                        <div key={step.id} className="flex flex-col items-center relative">
-                          {/* Connection line */}
-                          {index > 0 && (shouldShow || encrypt) && (
-                            <div className={`absolute -left-8 top-5 w-16 h-0.5 transition-all duration-500 ${
-                              isCompleted ? 'bg-green-500' : 'bg-gray-600'
-                            }`}></div>
-                          )}
-                          
-                          {/* Step Icon */}
-                          <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-500 z-10 ${
-                            isCompleted 
-                              ? 'bg-green-500 border-green-500' 
-                              : isActive 
-                                ? 'bg-purple-500 border-purple-500 animate-pulse' 
-                                : 'border-gray-600 bg-gray-800'
-                          }`}>
-                            <Icon className="text-white" size={16} />
-                          </div>
-                          
-                          {/* Step Label */}
-                          <div className={`text-sm font-medium mt-2 transition-colors duration-300 text-center ${
-                            isCompleted 
-                              ? 'text-green-400' 
-                              : isActive 
-                                ? 'text-purple-400' 
-                                : 'text-gray-400'
-                          }`}>
-                            {step.label}
-                          </div>
-                          
-                          {/* Progress Bar for Active Step */}
-                          {isActive && (
-                            <div className="mt-2 w-20">
-                              <div className="w-full bg-gray-700 rounded-full h-2">
-                                <div 
-                                  className="bg-purple-500 h-2 rounded-full transition-all duration-200 ease-out"
-                                  style={{ width: `${stepProgress}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                {/* 3D Animation */}
+                <Upload3DAnimation 
+                  isUploading={isUploading}
+                  currentStep={currentStep}
+                  stepProgress={stepProgress}
+                  encrypt={encrypt}
+                />
 
                 {/* Current Step Info */}
-                <div className="text-center mb-4">
+                <div className="text-center mt-6 mb-4">
                   <p className="text-lg font-medium text-white mb-2">
                     {uploadSteps[currentStep]?.label || 'Processing...'}
                   </p>
