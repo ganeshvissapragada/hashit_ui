@@ -74,9 +74,9 @@ export default function BlockchainUploadModalNew({
     });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.receiveShadow = true;
-    // Initial rotation to face the display
-    earth.rotation.y = Math.PI * 0.5; // Rotate 90 degrees to face forward
-    earth.rotation.x = Math.PI * 0.1; // Slight tilt for better viewing angle
+    // Set up globe on horizontal stick orientation
+    earth.rotation.z = Math.PI * 0.4; // Tilt the globe like on a stand
+    earth.rotation.x = Math.PI * 0.1; // Slight forward tilt
     scene.add(earth);
 
     // Create atmosphere
@@ -181,7 +181,7 @@ export default function BlockchainUploadModalNew({
       const animationId = requestAnimationFrame(animate);
       const time = Date.now() * 0.001;
       
-      // Rotate Earth
+      // Rotate Earth clockwise around horizontal axis (like globe on a stand)
       earth.rotation.y += 0.005;
       
       // Move satellites
