@@ -191,6 +191,7 @@ export default function FileUpload() {
   });
 
   return (
+    <>
     <Card className="bg-gray-900/30 border-indigo-700/50">
       <CardContent className="p-8">
         <div className="text-center mb-8">
@@ -493,18 +494,21 @@ export default function FileUpload() {
     </Card>
 
     {/* Blockchain Upload Modal */}
-    <BlockchainUploadModal
-      isOpen={showBlockchainModal}
-      onClose={() => setShowBlockchainModal(false)}
-      fileName={selectedFiles[0]?.name || ""}
-      encrypt={encrypt || zeroKnowledge}
-      onUploadComplete={(transactionId) => {
-        // Handle successful upload
-        if (selectedFiles[0]) {
-          handleFileUpload(selectedFiles[0]);
-        }
-        setShowBlockchainModal(false);
-      }}
-    />
+    {showBlockchainModal && (
+      <BlockchainUploadModal
+        isOpen={showBlockchainModal}
+        onClose={() => setShowBlockchainModal(false)}
+        fileName={selectedFiles[0]?.name || ""}
+        encrypt={encrypt || zeroKnowledge}
+        onUploadComplete={(transactionId) => {
+          // Handle successful upload
+          if (selectedFiles[0]) {
+            handleFileUpload(selectedFiles[0]);
+          }
+          setShowBlockchainModal(false);
+        }}
+      />
+    )}
+    </>
   );
 }
