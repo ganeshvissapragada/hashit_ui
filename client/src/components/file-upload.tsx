@@ -4,9 +4,11 @@ import { useDropzone } from "react-dropzone";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, FolderOpen, Lock, HardDrive, Shield, Infinity } from "lucide-react";
+import { CloudUpload, FolderOpen, Lock, HardDrive, Shield, Infinity, Eye, EyeOff, Key, AlertCircle, CheckCircle } from "lucide-react";
 import { generateSHA256, encryptFile } from "@/lib/crypto";
 import { addRecentUpload, updateStorageUsed } from "@/lib/storage";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,8 +19,12 @@ export default function FileUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [currentHash, setCurrentHash] = useState("");
   const [encrypt, setEncrypt] = useState(false);
+  const [zeroKnowledge, setZeroKnowledge] = useState(false);
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [stepProgress, setStepProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -27,6 +33,23 @@ export default function FileUpload() {
     { id: 'key', label: 'Generating Key', icon: Shield, color: 'text-blue-400' },
     { id: 'upload', label: 'Uploading to Blockchain', icon: CloudUpload, color: 'text-green-400' }
   ];
+
+  // Password validation
+  const validatePassword = (password: string) => {
+    const validations = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    
+    const score = Object.values(validations).filter(Boolean).length;
+    return { validations, score, isValid: score >= 4 };
+  };
+
+  const passwordValidation = validatePassword(password);
+  const canUpload = selectedFiles.length > 0 && (!zeroKnowledge || passwordValidation.isValid);
 
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -75,15 +98,25 @@ export default function FileUpload() {
   };
 
   const handleFileUpload = useCallback(async (file: File) => {
+    // Validate zero-knowledge password if enabled
+    if (zeroKnowledge && !passwordValidation.isValid) {
+      toast({
+        title: "Invalid password",
+        description: "Please enter a strong password that meets all requirements",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(0);
     setCurrentHash("");
-    setCurrentStep(encrypt ? 0 : 1); // Start from encryption or key generation
+    setCurrentStep((encrypt || zeroKnowledge) ? 0 : 1); // Start from encryption or key generation
     setStepProgress(0);
 
     try {
       // Step 1: Encryption (if enabled)
-      if (encrypt) {
+      if (encrypt || zeroKnowledge) {
         await animateStep(0, 1500);
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -99,8 +132,26 @@ export default function FileUpload() {
       
       // Prepare form data
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("encrypted", encrypt.toString());
+      
+      if (encrypt || zeroKnowledge) {
+        // Use zero-knowledge password or generate one
+        const encryptionPassword = zeroKnowledge ? password : Math.random().toString(36).substring(2, 15);
+        const { encryptedData, iv, salt } = await encryptFile(file, encryptionPassword);
+        
+        const encryptedFile = new File([encryptedData], file.name, { type: file.type });
+        formData.append("file", encryptedFile);
+        if (!zeroKnowledge) {
+          formData.append("password", encryptionPassword);
+        }
+        formData.append("iv", Array.from(iv).join(','));
+        formData.append("salt", Array.from(salt).join(','));
+      } else {
+        formData.append("file", file);
+      }
+      
+      formData.append("hash", hash);
+      formData.append("encrypted", (encrypt || zeroKnowledge).toString());
+      formData.append("zeroKnowledge", zeroKnowledge.toString());
 
       // Upload file
       await uploadMutation.mutateAsync(formData);
@@ -124,12 +175,12 @@ export default function FileUpload() {
       setCurrentStep(0);
       setStepProgress(0);
     }
-  }, [encrypt, uploadMutation]);
+  }, [encrypt, zeroKnowledge, password, passwordValidation.isValid, toast, uploadMutation]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
-        handleFileUpload(acceptedFiles[0]);
+        setSelectedFiles(acceptedFiles);
       }
     },
     maxFiles: 1,
@@ -174,20 +225,187 @@ export default function FileUpload() {
               Browse Files
             </Button>
             
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="encrypt-checkbox"
-                checked={encrypt}
-                onCheckedChange={(checked) => setEncrypt(checked as boolean)}
-                className="border-indigo-600"
-              />
-              <label htmlFor="encrypt-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
-                <Lock className="text-purple-400" size={16} />
-                <span>Encrypt file before uploading to blockchain</span>
-              </label>
+            <div className="flex flex-col items-center space-y-4">
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="encrypt-checkbox"
+                  checked={encrypt}
+                  onCheckedChange={(checked) => setEncrypt(checked as boolean)}
+                  className="border-indigo-600"
+                />
+                <label htmlFor="encrypt-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
+                  <Lock className="text-purple-400" size={16} />
+                  <span>Encrypt file before uploading to blockchain</span>
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="zero-knowledge-checkbox"
+                  checked={zeroKnowledge}
+                  onCheckedChange={(checked) => setZeroKnowledge(checked as boolean)}
+                  className="border-indigo-600"
+                />
+                <label htmlFor="zero-knowledge-checkbox" className="text-sm text-slate-300 flex items-center space-x-2">
+                  <Key className="text-blue-400" size={16} />
+                  <span>Zero-knowledge encryption with custom password</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Zero-knowledge password field */}
+        {zeroKnowledge && (
+          <div className="mt-6">
+            <Card className="bg-gray-900/50 border-indigo-700/50">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Key className="text-blue-400" size={18} />
+                    <h3 className="text-lg font-medium text-white">Zero-Knowledge Password</h3>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Label htmlFor="password" className="text-sm text-slate-300">
+                      Enter a strong password for zero-knowledge encryption
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="bg-gray-800 border-gray-600 text-white pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Password strength indicator */}
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-400">Password strength:</span>
+                      <div className="flex space-x-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <div
+                            key={i}
+                            className={`w-4 h-2 rounded-full transition-colors ${
+                              i < passwordValidation.score
+                                ? passwordValidation.score < 3
+                                  ? "bg-red-500"
+                                  : passwordValidation.score < 4
+                                  ? "bg-yellow-500"
+                                  : "bg-green-500"
+                                : "bg-gray-600"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Password requirements */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className={`flex items-center space-x-1 ${passwordValidation.validations.length ? 'text-green-400' : 'text-red-400'}`}>
+                        {passwordValidation.validations.length ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        <span>8+ characters</span>
+                      </div>
+                      <div className={`flex items-center space-x-1 ${passwordValidation.validations.uppercase ? 'text-green-400' : 'text-red-400'}`}>
+                        {passwordValidation.validations.uppercase ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        <span>Uppercase letter</span>
+                      </div>
+                      <div className={`flex items-center space-x-1 ${passwordValidation.validations.lowercase ? 'text-green-400' : 'text-red-400'}`}>
+                        {passwordValidation.validations.lowercase ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        <span>Lowercase letter</span>
+                      </div>
+                      <div className={`flex items-center space-x-1 ${passwordValidation.validations.number ? 'text-green-400' : 'text-red-400'}`}>
+                        {passwordValidation.validations.number ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        <span>Number</span>
+                      </div>
+                      <div className={`flex items-center space-x-1 ${passwordValidation.validations.special ? 'text-green-400' : 'text-red-400'}`}>
+                        {passwordValidation.validations.special ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        <span>Special character</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Selected files and submit button */}
+        {selectedFiles.length > 0 && (
+          <div className="mt-6">
+            <Card className="bg-gray-900/50 border-indigo-700/50">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <FolderOpen className="text-purple-400" size={18} />
+                    <h3 className="text-lg font-medium text-white">Selected Files</h3>
+                  </div>
+                  
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-medium">
+                            {file.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{file.name}</p>
+                          <p className="text-slate-400 text-sm">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedFiles([])}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  <Button
+                    onClick={() => selectedFiles[0] && handleFileUpload(selectedFiles[0])}
+                    disabled={!canUpload || isUploading}
+                    className="w-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-3 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUploading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <span>Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <CloudUpload size={16} />
+                        <span>Upload to Blockchain</span>
+                      </div>
+                    )}
+                  </Button>
+                  
+                  {zeroKnowledge && !passwordValidation.isValid && (
+                    <p className="text-red-400 text-sm text-center">
+                      Please enter a strong password before uploading
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {isUploading && (
           <div className="mt-6">
@@ -198,7 +416,7 @@ export default function FileUpload() {
                   isUploading={isUploading}
                   currentStep={currentStep}
                   stepProgress={stepProgress}
-                  encrypt={encrypt}
+                  encrypt={encrypt || zeroKnowledge}
                 />
 
                 {/* Current Step Info */}
