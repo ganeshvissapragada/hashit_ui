@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import * as THREE from "three";
 
@@ -178,8 +178,8 @@ export default function BlockchainUploadModalNew({
       const animationId = requestAnimationFrame(animate);
       const time = Date.now() * 0.001;
       
-      // Rotate Earth
-      earth.rotation.y += 0.005;
+      // Rotate Earth (more realistic rotation on y-axis, slower speed)
+      earth.rotation.y += 0.002;
       
       // Move satellites
       satellites.forEach(satellite => {
@@ -354,6 +354,8 @@ export default function BlockchainUploadModalNew({
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl h-[90vh] p-0 bg-transparent border-none overflow-hidden">
+        <DialogTitle className="sr-only">Global Blockchain Transfer</DialogTitle>
+        <DialogDescription className="sr-only">Secure, decentralized file storage across the globe</DialogDescription>
         <div 
           className="relative w-full h-full"
           style={{
