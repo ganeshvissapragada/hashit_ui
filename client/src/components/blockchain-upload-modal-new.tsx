@@ -391,7 +391,7 @@ export default function BlockchainUploadModalNew({
                 🌍
               </div>
               <div className="text-[22px] mb-2.5 font-semibold text-[#00d4ff]">
-                Global Blockchain Transfer
+                ✅ EARTH ROTATION STOPPED ✅
               </div>
               <div className="text-sm opacity-70 mb-7 text-[#a0a0a0]">
                 Secure, decentralized file storage across the globe
