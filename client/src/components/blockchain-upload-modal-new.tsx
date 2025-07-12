@@ -74,6 +74,9 @@ export default function BlockchainUploadModalNew({
     });
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     earth.receiveShadow = true;
+    // Initial rotation to face the display
+    earth.rotation.y = Math.PI * 0.5; // Rotate 90 degrees to face forward
+    earth.rotation.x = Math.PI * 0.1; // Slight tilt for better viewing angle
     scene.add(earth);
 
     // Create atmosphere
